@@ -1,0 +1,8 @@
+{
+    "_id": "ObjectId()",
+    "nombre": "string",
+    "fechaInicio": "date",
+    "fechaFin": "date",
+    "estatus": "string",
+    "asistencia": "boolean"
+}

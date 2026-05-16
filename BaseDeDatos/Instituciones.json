@@ -1,0 +1,7 @@
+{
+  "_id": "ObjectId()",
+  "nombre": "string",
+  "tipo": "string",
+  "ciudad": "string",
+  "estado": "string"
+}

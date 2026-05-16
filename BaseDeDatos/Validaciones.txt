@@ -1,0 +1,153 @@
+-------- VALIDACION DE EVENTOS --------------
+{
+  $jsonSchema: {
+    bsonType: 'object',
+    required: [
+      'nombre',
+      'fechaInicio',
+      'fechaFin',
+      'estatus',
+      'asistencia'
+    ],
+    properties: {
+      nombre: {
+        bsonType: 'string'
+      },
+      fechaInicio: {
+        bsonType: 'date',
+        description: 'Debe ser una fecha válida.'
+      },
+      fechaFin: {
+        bsonType: 'date',
+        description: 'Debe ser una fecha válida.'
+      },
+      estatus: {
+        bsonType: 'string',
+        'enum': [
+          'Captura',
+          'Revision',
+          'Rechazado',
+          'Autorizado',
+          'Cancelado',
+          'Planeacion',
+          'Difusion',
+          'Pospuesto',
+          'Proceso',
+          'Finalizado'
+        ],
+        description: 'El estatus debe coincidir con el flujo de negocio establecido.'
+      },
+      asistencia: {
+        bsonType: 'bool'
+      }
+    }
+  }
+}
+
+
+---------- ESQUEMA DE VALIDACION DE INSTITUCIONES -------------
+{
+  $jsonSchema: {
+    bsonType: 'object',
+    required: [
+      'nombre',
+      'tipo',
+      'ciudad',
+      'estado'
+    ],
+    properties: {
+      nombre: {
+        bsonType: 'string',
+        description: 'El nombre es obligatorio y debe ser un texto.'
+      },
+      tipo: {
+        bsonType: 'string',
+        description: 'El tipo de institución es obligatorio.'
+      },
+      ciudad: {
+        bsonType: 'string'
+      },
+      estado: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+
+----------- ESQUEMA DE VALIDACION DE USUARIOS ----------------
+{
+  $jsonSchema: {
+    bsonType: 'object',
+    required: [
+      'nombre',
+      'apellido',
+      'telefono',
+      'correo',
+      'fechaRegistro',
+      'estatus',
+      'tipo',
+      'idInstitucion'
+    ],
+    properties: {
+      nombre: {
+        bsonType: 'string'
+      },
+      apellido: {
+        bsonType: 'string'
+      },
+      telefono: {
+        bsonType: 'string',
+        pattern: '^[0-9]{10}$',
+        description: 'El teléfono es obligatorio y debe contener exactamente 10 dígitos numéricos.'
+      },
+      correo: {
+        bsonType: 'string',
+        pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
+        description: 'Debe ser una dirección de correo electrónico válida.'
+      },
+      fechaRegistro: {
+        bsonType: 'date'
+      },
+      estatus: {
+        bsonType: 'string'
+      },
+      tipo: {
+        bsonType: 'string'
+      },
+      idInstitucion: {
+        bsonType: 'objectId',
+        description: 'Debe ser una referencia válida (ObjectId) a la colección Instituciones.'
+      },
+      idEvento: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'objectId'
+        },
+        description: 'Debe ser un arreglo de ObjectIds referenciando a los eventos.'
+      },
+      perfilUsuario: {
+        bsonType: 'object',
+        properties: {
+          nivelEstudios: {
+            bsonType: 'string'
+          },
+          carrera: {
+            bsonType: 'string'
+          },
+          requerimientosEspeciales: {
+            bsonType: 'string'
+          },
+          costo: {
+            bsonType: 'double'
+          },
+          cv: {
+            bsonType: 'string'
+          },
+          estatus: {
+            bsonType: 'string'
+          }
+        }
+      }
+    }
+  }
+}

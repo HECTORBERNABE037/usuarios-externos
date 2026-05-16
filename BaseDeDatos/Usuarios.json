@@ -1,0 +1,22 @@
+{
+  "_id": "ObjectId()",
+  "nombre": "string",
+  "apellido": "string",
+  "telefono": "string",
+  "correo": "string",
+  "fechaRegistro": "date",
+  "estatus": "string",
+  "tipo": "string",
+  "idInstitucion": "ref(Instituciones.id)",
+  "idEvento": ["ref(Eventos.id)"],
+
+  "perfilUsuario": {
+    "nivelEstudios": "string",
+    "carrera": "string",
+    "requerimientosEspeciales": "string",
+    "costo": "double",
+    "cv": "string",
+    "estatus": "string"
+  }
+
+}
