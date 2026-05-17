@@ -36,9 +36,16 @@ class UsuarioDAO:
     def agregarUsuario(self,usuario:CrearUsuario):
         try:
             salida = Salida(codigo=0,mensaje="")
+            #Regla de negocio (comprobar que el correo no exista previamente)
+            usuario_existente = self.db.Usuarios.find_one({"correo":usuario.correo})
+            if usuario_existente:
+                salida.codigo=409
+                salida.mensaje=f"El usuario con el correo {usuario.correo} ya existe"
+                return salida
             data=usuario.model_dump()
             data['fechaRegistro']=datetime.utcnow()
             data['estatus']='Registrado'
+            data['rol']='Usuario'
             #convertimos los strings a objectId
             data['idInstitucion']=ObjectId(usuario.idInstitucion)
             if 'idEventos' in data and data['idEventos']:
@@ -51,3 +58,259 @@ class UsuarioDAO:
             salida.codigo=500
             salida.mensaje=f"Error al agregar usuario: {ex}"
         return salida
+
+    def consultarPorId(self,idUsuario:str):
+        salida = ConsultaSalida(codigo=0,mensaje="",usuario=None)
+        try:
+            usuario_existente=self.db["UsuariosView"].find_one({"_id":ObjectId(idUsuario)})
+            if usuario_existente:
+                usuario_existente["idInstitucion"]=str(usuario_existente["idInstitucion"])
+                salida.codigo=200
+                salida.mensaje="El usuario se encontro exitosamenente"
+                salida.usuario= UsuarioConsulta(**usuario_existente)
+                return salida
+            else:
+                salida.codigo=404
+                salida.mensaje="El usuario no existe"
+                return salida
+        except Exception as ex:
+            salida.codigo=500
+            salida.mensaje=f"Error al buscar el usuario: {ex}"
+            return salida
+
+    def modificarUsuario(self,usuario:ModificarUsuario,idUsuario:str,rol:str):
+        salida = Salida(codigo=0,mensaje="")
+        try:
+            usuario_recuperado = self.db.Usuarios.find_one({"_id":ObjectId(idUsuario)})
+            if not(usuario_recuperado):
+                salida.codigo=404
+                salida.mensaje="El usuario no existe"
+                return salida
+            data = usuario.model_dump(exclude_unset=True)
+
+            if not data.keys():
+                salida.codigo=400
+                salida.mensaje="Debes proporcionar informacion para realizar la modificacion"
+                return salida
+            es_admin = rol.lower() in ["organizador","supervisor"]
+            estatus_actual = usuario_recuperado['estatus']
+
+            if estatus_actual in ["Eliminado","Bloqueado"]:
+                salida.codigo=409
+                salida.mensaje=f"El usuario se encuentra {estatus_actual}"
+                return salida
+
+            if 'correo' in data:
+                if data['correo']!=usuario_recuperado.get('correo'):
+                    correo_existente = self.db.Usuarios.find_one({"correo":data['correo']})
+                    if correo_existente:
+                        salida.codigo=409
+                        salida.mensaje=f"El correo {data['correo']} ya existe"
+                        return salida
+
+            campos_restringidos = ["estatus","tipo","rol"]
+            for campo in campos_restringidos:
+                if campo in data and not es_admin:
+                    salida.codigo=403
+                    salida.mensaje=f"No tienes permisos de Organizador para modificar el campo: {campo}"
+                    return salida
+
+            if 'idInstitucion' in data:
+                institucion_existe = self.db.Instituciones.find_one({"_id":ObjectId(data['idInstitucion'])})
+                if not institucion_existe:
+                    salida.codigo=404
+                    salida.mensaje="La institucion proporcionda no existe"
+                    return salida
+                data['idInstitucion']=ObjectId(data['idInstitucion'])
+
+            if 'idEvento' in data and data['idEvento']:
+                ids_eventos = [ObjectId(ev) for ev in data['idEvento']]
+                eventos_existentes = self.db.Eventos.count_documents({"_id":{"$in":ids_eventos}})
+                if eventos_existentes != len(ids_eventos):
+                    salida.codigo=404
+                    salida.mensaje="Uno o mas eventos introducidos no existen"
+                    return salida
+                data['idEvento']=ids_eventos
+            data.pop('fechaRegistro',None)
+
+            result = self.db.Usuarios.update_one({"_id":ObjectId(idUsuario)},{"$set":data})
+
+            if result.modified_count > 0:
+                salida.codigo=200
+                salida.mensaje=f"Usuario modificado con exito"
+        except Exception as ex:
+            salida.codigo=500
+            salida.mensaje=f'Error interno del servidor al modificar el usuario {idUsuario} por el error {ex}'
+        return salida
+
+    def AdminModificarUsuario(self, usuario: AdminModificarUsuario, idUsuario: str, rol: str):
+        salida = Salida(codigo=0, mensaje="")
+
+        try:
+            usuario_recuperado = self.db.Usuarios.find_one({"_id": ObjectId(idUsuario)})
+            if not (usuario_recuperado):
+                salida.codigo = 404
+                salida.mensaje = "El usuario no existe"
+                return salida
+            data = usuario.model_dump(exclude_unset=True)
+
+            if not data.keys():
+                salida.codigo = 400
+                salida.mensaje = "Debes proporcionar informacion para realizar la modificacion"
+                return salida
+            es_admin = rol.lower() in ["organizador", "supervisor"]
+            estatus_actual = usuario_recuperado['estatus']
+
+            if not es_admin:
+                salida.codigo = 403
+                salida.mensaje = "No tienes permisos necesarios"
+                return salida
+
+            if 'correo' in data:
+                if data['correo'] != usuario_recuperado.get('correo'):
+                    correo_existente = self.db.Usuarios.find_one({"correo": data['correo']})
+                    if correo_existente:
+                        salida.codigo = 409
+                        salida.mensaje = f"El correo {data['correo']} ya existe"
+                        return salida
+
+            if 'idInstitucion' in data:
+                institucion_existe = self.db.Instituciones.find_one({"_id": ObjectId(data['idInstitucion'])})
+                if not institucion_existe:
+                    salida.codigo = 404
+                    salida.mensaje = "La institucion proporcionda no existe"
+                    return salida
+                data['idInstitucion'] = ObjectId(data['idInstitucion'])
+
+            if 'idEvento' in data and data['idEvento']:
+                ids_eventos = [ObjectId(ev) for ev in data['idEvento']]
+                eventos_existentes = self.db.Eventos.count_documents({"_id": {"$in": ids_eventos}})
+                if eventos_existentes != len(ids_eventos):
+                    salida.codigo = 404
+                    salida.mensaje = "Uno o mas eventos introducidos no existen"
+                    return salida
+                data['idEvento'] = ids_eventos
+            data.pop('fechaRegistro', None)
+
+            result = self.db.Usuarios.update_one({"_id": ObjectId(idUsuario)}, {"$set": data})
+
+            if result.modified_count > 0:
+                salida.codigo = 200
+                salida.mensaje = f"Usuario modificado con exito"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f'Error interno del servidor al modificar el usuario {idUsuario} por el error {ex}'
+        return salida
+
+    def ModificarPerfilUsuario(self,idUsuario,perfil_usuario:PerfilUsuario):
+        salida=Salida(codigo=0,mensaje="")
+        usuario_consultado = self.consultarPorId(idUsuario)
+        estatus_valido= ["Registrado","Acreditado"]
+        data = perfil_usuario.model_dump(exclude_unset=True)
+        if usuario_consultado.codigo == 200:
+            if usuario_consultado.usuario.estatus in estatus_valido:
+                if data:
+                    datos_anidados ={f"perfilUsuario.{key}":value for key,value in data.items()}
+                    result = self.db.Usuarios.update_one({"_id":ObjectId(idUsuario)},{"$set":datos_anidados})
+                    if result.modified_count > 0:
+                        salida.codigo = 200
+                        salida.mensaje = f"el perfil del Usuario modificado con exito"
+                    else:
+                        salida.codigo = 200
+                        salida.mensaje = "No se realizaron cambios. Los datos enviados son identicos"
+                else:
+                    salida.codigo = 400
+                    salida.mensaje = "Debes ingresar informacion para actualizar"
+            else:
+                salida.codigo = 403
+                salida.mensaje = f"El usuario {idUsuario} no tiene un estatus valido"
+        else:
+            salida.codigo = 404
+            salida.mensaje = f"El usuario {idUsuario} no existe"
+        return salida
+
+
+    def BorrarUsuario(self,idUsuario):
+        salida=Salida(codigo=0,mensaje="")
+        usuario_consultado = self.consultarPorId(idUsuario)
+        estatus_valido= "Eliminado"
+
+        if usuario_consultado.codigo == 200:
+            if usuario_consultado.usuario.estatus == estatus_valido:
+                salida.codigo = 200
+                salida.mensaje = f"El usuario ya se encontraba {estatus_valido}"
+            else:
+                result = self.db.Usuarios.update_one({"_id": ObjectId(idUsuario)}, {"$set": {"estatus": estatus_valido}})
+                if result.modified_count > 0:
+                    salida.codigo = 200
+                    salida.mensaje = "Usuario modificado con exito"
+        else:
+            salida.codigo = 404
+            salida.mensaje = "El usuario no existe"
+        return salida
+
+    def consultaGeneral(self):
+        salida=ConsultaGeneralSalida(codigo=0,mensaje="",usuarios=[])
+        try:
+            lista_usuarios=list(self.db["UsuariosView"].find())
+            lista_limpia=[]
+            for usuario_db in lista_usuarios:
+                if "idInstitucion" in usuario_db:
+                    usuario_db["idInstitucion"] = str(usuario_db["idInstitucion"])
+                usuario_validado = UsuarioConsulta(**usuario_db)
+                lista_limpia.append(usuario_validado)
+
+            salida.codigo = 200
+            salida.mensaje = "Listado de usuarios"
+            salida.usuarios = lista_limpia
+
+        except Exception as ex:
+            salida.codigo = 404
+            salida.mensaje = "Error al consultar"
+        return salida
+
+    def consultaPorEstatus(self,estatus:str)->ConsultaGeneralSalida:
+        salida=ConsultaGeneralSalida(codigo=0,mensaje="",usuarios=[])
+        try:
+            lista_usuarios=list(self.db["UsuariosView"].find({"estatus": estatus}))
+            lista_limpia=[]
+            for usuario_db in lista_usuarios:
+                if "idInstitucion" in usuario_db:
+                    usuario_db["idInstitucion"] = str(usuario_db["idInstitucion"])
+                usuario_validado = UsuarioConsulta(**usuario_db)
+                lista_limpia.append(usuario_validado)
+
+            salida.codigo = 200
+            salida.mensaje = "Listado de usuarios"
+            salida.usuarios = lista_limpia
+
+        except Exception as ex:
+            salida.codigo = 404
+            salida.mensaje = "Error al consultar"
+        return salida
+
+    def acreditarAcceso (self,idUsuario:str):
+        usuario_consultado = self.consultarPorId(idUsuario)
+        salida = Salida(codigo=0,mensaje="")
+        estatus_valido = "Registrado"
+        if usuario_consultado.codigo == 200:
+            estatus_actual=usuario_consultado.usuario.estatus
+            if estatus_actual != estatus_valido:
+                salida.codigo = 409
+                salida.mensaje = "El ya esta acreditado o se encuentra eliminado"
+            else:
+                result = self.db.Usuarios.update_one({"_id":ObjectId(idUsuario)}, {"$set": {"estatus": "Acreditado"}})
+                if result.modified_count > 0:
+                    salida.codigo = 200
+                    salida.mensaje = f"Usuario acreditado con exito"
+                else:
+                    salida.codigo = 500
+                    salida.mensaje = "Error al acreditar el usuario"
+        else:
+            salida.codigo = 404
+            salida.mensaje = "Usuario no existe"
+        return salida
+
+
+
+
