@@ -67,6 +67,41 @@ class ModificarPerfilUsuario(BaseModel):
     costo: Optional[float] = None
     cv: Optional[str] = None
 
+class InstitucionCreate(BaseModel):
+    nombre: str
+    tipo: str
+    ciudad: str
+    estado: str
+ 
+ 
+class InstitucionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
+ 
+ 
+class InstitucionConsulta(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
+    fechaRegistro: Optional[datetime] = None
+ 
+    model_config = {"populate_by_name": True}
+ 
+ 
+class ConsultaSalidaInstitucion(BaseModel):
+    codigo: int
+    mensaje: str
+    institucion: Optional[InstitucionConsulta] = None
+ 
+ 
+class ConsultaGeneralSalidaInstitucion(BaseModel):
+    codigo: int
+    mensaje: str
+    instituciones: List[InstitucionConsulta] = []
 
 
 

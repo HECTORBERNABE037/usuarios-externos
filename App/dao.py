@@ -311,6 +311,170 @@ class UsuarioDAO:
             salida.mensaje = "Usuario no existe"
         return salida
 
+# ── JESUS ESTRADA ALEJANDRE ───────────────────────────────────────────────
 
-
-
+# ─────────────────────────────────────────────
+# DAO de Institución
+# ─────────────────────────────────────────────
+class InstitucionDAO:
+    def __init__(self, db):
+        self.db = db
+        self.col = self.db.Instituciones
+ 
+    def agregarInstitucion(self, institucion: InstitucionCreate) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        try:
+            # Regla de negocio: comprobar que no exista ya una institución con el mismo nombre
+            institucion_existente = self.db.Instituciones.find_one({"nombre": institucion.nombre})
+            if institucion_existente:
+                salida.codigo = 409
+                salida.mensaje = f"Ya existe una institucion con el nombre '{institucion.nombre}'"
+                return salida
+            data = institucion.model_dump()
+            data['fechaRegistro'] = datetime.utcnow()
+            result = self.db.Instituciones.insert_one(data)
+            salida.codigo = 201
+            salida.mensaje = f"Institucion creada exitosamente con id {result.inserted_id}"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al agregar institucion: {ex}"
+        return salida
+ 
+    def consultarPorId(self, idInstitucion: str) -> ConsultaSalidaInstitucion:
+        salida = ConsultaSalidaInstitucion(codigo=0, mensaje="", institucion=None)
+        try:
+            institucion_existente = self.db.Instituciones.find_one({"_id": ObjectId(idInstitucion)})
+            if institucion_existente:
+                institucion_existente["_id"] = str(institucion_existente["_id"])
+                salida.codigo = 200
+                salida.mensaje = "La institucion se encontro exitosamente"
+                salida.institucion = InstitucionConsulta(**institucion_existente)
+                return salida
+            else:
+                salida.codigo = 404
+                salida.mensaje = "La institucion no existe"
+                return salida
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al buscar la institucion: {ex}"
+            return salida
+ 
+    def consultaGeneral(self) -> ConsultaGeneralSalidaInstitucion:
+        salida = ConsultaGeneralSalidaInstitucion(codigo=0, mensaje="", instituciones=[])
+        try:
+            lista_instituciones = list(self.db.Instituciones.find())
+            lista_limpia = []
+            for inst_db in lista_instituciones:
+                inst_db["_id"] = str(inst_db["_id"])
+                institucion_validada = InstitucionConsulta(**inst_db)
+                lista_limpia.append(institucion_validada)
+            salida.codigo = 200
+            salida.mensaje = "Listado de instituciones"
+            salida.instituciones = lista_limpia
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al consultar instituciones: {ex}"
+        return salida
+ 
+    def consultarPorNombre(self, nombre: str) -> ConsultaGeneralSalidaInstitucion:
+        salida = ConsultaGeneralSalidaInstitucion(codigo=0, mensaje="", instituciones=[])
+        try:
+            lista_instituciones = list(self.db.Instituciones.find(
+                {"nombre": {"$regex": nombre.strip(), "$options": "i"}}
+            ))
+            lista_limpia = []
+            for inst_db in lista_instituciones:
+                inst_db["_id"] = str(inst_db["_id"])
+                institucion_validada = InstitucionConsulta(**inst_db)
+                lista_limpia.append(institucion_validada)
+            if lista_limpia:
+                salida.codigo = 200
+                salida.mensaje = f"Se encontraron {len(lista_limpia)} institucion(es) con nombre '{nombre}'"
+                salida.instituciones = lista_limpia
+            else:
+                salida.codigo = 404
+                salida.mensaje = f"No se encontro ninguna institucion con nombre '{nombre}'"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al buscar institucion por nombre: {ex}"
+        return salida
+ 
+    def consultarPorCiudad(self, ciudad: str) -> ConsultaGeneralSalidaInstitucion:
+        salida = ConsultaGeneralSalidaInstitucion(codigo=0, mensaje="", instituciones=[])
+        try:
+            lista_instituciones = list(self.db.Instituciones.find(
+                {"ciudad": {"$regex": ciudad.strip(), "$options": "i"}}
+            ))
+            lista_limpia = []
+            for inst_db in lista_instituciones:
+                inst_db["_id"] = str(inst_db["_id"])
+                institucion_validada = InstitucionConsulta(**inst_db)
+                lista_limpia.append(institucion_validada)
+            if lista_limpia:
+                salida.codigo = 200
+                salida.mensaje = f"Se encontraron {len(lista_limpia)} institucion(es) en la ciudad '{ciudad}'"
+                salida.instituciones = lista_limpia
+            else:
+                salida.codigo = 404
+                salida.mensaje = f"No se encontro ninguna institucion en la ciudad '{ciudad}'"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al buscar institucion por ciudad: {ex}"
+        return salida
+ 
+    def modificarInstitucion(self, idInstitucion: str, datos: InstitucionUpdate) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        try:
+            institucion_recuperada = self.db.Instituciones.find_one({"_id": ObjectId(idInstitucion)})
+            if not institucion_recuperada:
+                salida.codigo = 404
+                salida.mensaje = "La institucion no existe"
+                return salida
+            data = datos.model_dump(exclude_unset=True)
+            if not data.keys():
+                salida.codigo = 400
+                salida.mensaje = "Debes proporcionar informacion para realizar la modificacion"
+                return salida
+            # Regla de negocio: si se cambia el nombre, verificar que no lo tenga otra institución
+            if 'nombre' in data:
+                if data['nombre'] != institucion_recuperada.get('nombre'):
+                    nombre_existente = self.db.Instituciones.find_one({"nombre": data['nombre']})
+                    if nombre_existente:
+                        salida.codigo = 409
+                        salida.mensaje = f"Ya existe una institucion con el nombre '{data['nombre']}'"
+                        return salida
+            result = self.db.Instituciones.update_one(
+                {"_id": ObjectId(idInstitucion)},
+                {"$set": data}
+            )
+            if result.modified_count > 0:
+                salida.codigo = 200
+                salida.mensaje = "Institucion modificada con exito"
+            else:
+                salida.codigo = 200
+                salida.mensaje = "No se realizaron cambios. Los datos enviados son identicos"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error interno del servidor al modificar la institucion {idInstitucion} por el error {ex}"
+        return salida
+ 
+    def eliminarInstitucion(self, idInstitucion: str) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        institucion_consultada = self.consultarPorId(idInstitucion)
+        if institucion_consultada.codigo == 200:
+            try:
+                result = self.db.Instituciones.delete_one({"_id": ObjectId(idInstitucion)})
+                if result.deleted_count > 0:
+                    salida.codigo = 200
+                    salida.mensaje = "Institucion eliminada con exito"
+                else:
+                    salida.codigo = 500
+                    salida.mensaje = "Error al eliminar la institucion"
+            except Exception as ex:
+                salida.codigo = 500
+                salida.mensaje = f"Error al eliminar la institucion: {ex}"
+        else:
+            salida.codigo = 404
+            salida.mensaje = "La institucion no existe"
+        return salida
+ 
