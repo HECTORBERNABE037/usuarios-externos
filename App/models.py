@@ -67,8 +67,82 @@ class ModificarPerfilUsuario(BaseModel):
     costo: Optional[float] = None
     cv: Optional[str] = None
 
+class InstitucionCreate(BaseModel):
+    nombre: str
+    tipo: str
+    ciudad: str
+    estado: str
+ 
+ 
+class InstitucionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
+ 
+ 
+class InstitucionConsulta(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    nombre: Optional[str] = None
+    tipo: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
+    fechaRegistro: Optional[datetime] = None
+ 
+    model_config = {"populate_by_name": True}
+ 
+ 
+class ConsultaSalidaInstitucion(BaseModel):
+    codigo: int
+    mensaje: str
+    institucion: Optional[InstitucionConsulta] = None
+ 
+ 
+class ConsultaGeneralSalidaInstitucion(BaseModel):
+    codigo: int
+    mensaje: str
+    instituciones: List[InstitucionConsulta] = []
 
 
+# ── JORGE ANDRES AVILA MEDINA - EVENTOS ────────────────────────────────────────────────────
+
+EstatusEvento = Literal[
+    "Captura", "Revision", "Rechazado", "Autorizado", "Cancelado",
+    "Planeacion", "Difusion", "Pospuesto", "Proceso", "Finalizado"
+]
 
 
+class EventoCreate(BaseModel):
+    nombre: str
+    fechaInicio: datetime
+    fechaFin: datetime
+    estatus: EstatusEvento
+    asistencia: bool
+
+
+class EventoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    fechaInicio: Optional[datetime] = None
+    fechaFin: Optional[datetime] = None
+    estatus: Optional[EstatusEvento] = None
+    asistencia: Optional[bool] = None
+
+
+class EventoConsulta(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    nombre: Optional[str] = None
+    fechaInicio: Optional[datetime] = None
+    fechaFin: Optional[datetime] = None
+    estatus: Optional[str] = None
+    asistencia: Optional[bool] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ConsultaSalidaEvento(Salida):
+    evento: Optional[EventoConsulta] = None
+
+
+class ConsultaGeneralSalidaEvento(Salida):
+    eventos: List[EventoConsulta] = []
 
