@@ -477,4 +477,150 @@ class InstitucionDAO:
             salida.codigo = 404
             salida.mensaje = "La institucion no existe"
         return salida
- 
+
+
+# ── EVENTOS - JORGE ANDRES AVILA MEDINA ──────────────────────────────────────────────────────────────────
+
+class EventoDAO:
+    def __init__(self, db):
+        self.db = db
+        self.col = self.db.Eventos
+
+    def agregarEvento(self, evento: EventoCreate) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        try:
+            evento_existente = self.col.find_one({"nombre": evento.nombre})
+            if evento_existente:
+                salida.codigo = 409
+                salida.mensaje = f"Ya existe un evento con el nombre '{evento.nombre}'"
+                return salida
+            if evento.fechaFin < evento.fechaInicio:
+                salida.codigo = 400
+                salida.mensaje = "La fechaFin no puede ser anterior a la fechaInicio"
+                return salida
+            data = evento.model_dump()
+            result = self.col.insert_one(data)
+            salida.codigo = 201
+            salida.mensaje = f"Evento creado exitosamente con id {result.inserted_id}"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al agregar evento: {ex}"
+        return salida
+
+    def consultarPorId(self, idEvento: str) -> ConsultaSalidaEvento:
+        salida = ConsultaSalidaEvento(codigo=0, mensaje="", evento=None)
+        try:
+            evento_existente = self.col.find_one({"_id": ObjectId(idEvento)})
+            if evento_existente:
+                evento_existente["_id"] = str(evento_existente["_id"])
+                salida.codigo = 200
+                salida.mensaje = "El evento se encontro exitosamente"
+                salida.evento = EventoConsulta(**evento_existente)
+                return salida
+            else:
+                salida.codigo = 404
+                salida.mensaje = "El evento no existe"
+                return salida
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al buscar el evento: {ex}"
+            return salida
+
+    def consultaGeneral(self) -> ConsultaGeneralSalidaEvento:
+        salida = ConsultaGeneralSalidaEvento(codigo=0, mensaje="", eventos=[])
+        try:
+            lista_eventos = list(self.col.find())
+            lista_limpia = []
+            for ev_db in lista_eventos:
+                ev_db["_id"] = str(ev_db["_id"])
+                evento_validado = EventoConsulta(**ev_db)
+                lista_limpia.append(evento_validado)
+            salida.codigo = 200
+            salida.mensaje = "Listado de eventos"
+            salida.eventos = lista_limpia
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al consultar eventos: {ex}"
+        return salida
+
+    def consultarPorEstatus(self, estatus: str) -> ConsultaGeneralSalidaEvento:
+        salida = ConsultaGeneralSalidaEvento(codigo=0, mensaje="", eventos=[])
+        try:
+            lista_eventos = list(self.col.find({"estatus": estatus}))
+            lista_limpia = []
+            for ev_db in lista_eventos:
+                ev_db["_id"] = str(ev_db["_id"])
+                evento_validado = EventoConsulta(**ev_db)
+                lista_limpia.append(evento_validado)
+            salida.codigo = 200
+            salida.mensaje = f"Listado de eventos con estatus '{estatus}'"
+            salida.eventos = lista_limpia
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al consultar eventos por estatus: {ex}"
+        return salida
+
+    def modificarEvento(self, idEvento: str, datos: EventoUpdate) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        try:
+            evento_recuperado = self.col.find_one({"_id": ObjectId(idEvento)})
+            if not evento_recuperado:
+                salida.codigo = 404
+                salida.mensaje = "El evento no existe"
+                return salida
+            data = datos.model_dump(exclude_unset=True)
+            if not data:
+                salida.codigo = 400
+                salida.mensaje = "Debes proporcionar informacion para realizar la modificacion"
+                return salida
+            fecha_inicio = data.get("fechaInicio", evento_recuperado.get("fechaInicio"))
+            fecha_fin = data.get("fechaFin", evento_recuperado.get("fechaFin"))
+            if fecha_fin < fecha_inicio:
+                salida.codigo = 400
+                salida.mensaje = "La fechaFin no puede ser anterior a la fechaInicio"
+                return salida
+            if "nombre" in data and data["nombre"] != evento_recuperado.get("nombre"):
+                nombre_existente = self.col.find_one({"nombre": data["nombre"]})
+                if nombre_existente:
+                    salida.codigo = 409
+                    salida.mensaje = f"Ya existe un evento con el nombre '{data['nombre']}'"
+                    return salida
+            result = self.col.update_one({"_id": ObjectId(idEvento)}, {"$set": data})
+            if result.modified_count > 0:
+                salida.codigo = 200
+                salida.mensaje = "Evento modificado con exito"
+            else:
+                salida.codigo = 200
+                salida.mensaje = "No se realizaron cambios. Los datos enviados son identicos"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error interno del servidor al modificar el evento {idEvento}: {ex}"
+        return salida
+
+    def eliminarEvento(self, idEvento: str) -> Salida:
+        salida = Salida(codigo=0, mensaje="")
+        try:
+            evento_existente = self.col.find_one({"_id": ObjectId(idEvento)})
+            if not evento_existente:
+                salida.codigo = 404
+                salida.mensaje = "El evento no existe"
+                return salida
+            usuarios_inscritos = self.db.Usuarios.count_documents({"idEvento": ObjectId(idEvento)})
+            if usuarios_inscritos > 0:
+                salida.codigo = 409
+                salida.mensaje = (
+                    f"No se puede eliminar el evento porque tiene {usuarios_inscritos} "
+                    f"usuario(s) inscrito(s). Desincribalos primero."
+                )
+                return salida
+            result = self.col.delete_one({"_id": ObjectId(idEvento)})
+            if result.deleted_count > 0:
+                salida.codigo = 200
+                salida.mensaje = "Evento eliminado con exito"
+            else:
+                salida.codigo = 500
+                salida.mensaje = "Error al eliminar el evento"
+        except Exception as ex:
+            salida.codigo = 500
+            salida.mensaje = f"Error al eliminar el evento: {ex}"
+        return salida

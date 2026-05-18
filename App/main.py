@@ -101,6 +101,34 @@ async def eliminarInstitucion(request: Request, id: str) -> Salida:
  
 
 
+# ── JORGE ANDRES AVILA MEDINA - EVENTOS ────────────────────────────────────────────────────
+
+@app.post("/eventos", tags=["Eventos"], summary="Crear un nuevo evento", response_model=Salida, status_code=201)
+async def crearEvento(request: Request, evento: EventoCreate) -> Salida:
+    dao = EventoDAO(request.app.cn.db)
+    return dao.agregarEvento(evento)
+
+@app.get("/eventos", tags=["Eventos"], summary="Consultar todos los eventos", response_model=ConsultaGeneralSalidaEvento)
+async def obtenerEventos(request: Request) -> ConsultaGeneralSalidaEvento:
+    dao = EventoDAO(request.app.cn.db)
+    return dao.consultaGeneral()
+
+@app.get("/eventos/{idEvento}", tags=["Eventos"], summary="Consultar un evento por ID", response_model=ConsultaSalidaEvento)
+async def obtenerEventoPorId(request: Request, idEvento: str) -> ConsultaSalidaEvento:
+    dao = EventoDAO(request.app.cn.db)
+    return dao.consultarPorId(idEvento)
+
+@app.put("/eventos/{idEvento}", tags=["Eventos"], summary="Modificar un evento", response_model=Salida)
+async def modificarEvento(request: Request, idEvento: str, datos: EventoUpdate) -> Salida:
+    dao = EventoDAO(request.app.cn.db)
+    return dao.modificarEvento(idEvento, datos)
+
+@app.delete("/eventos/{idEvento}", tags=["Eventos"], summary="Eliminar un evento", response_model=Salida)
+async def eliminarEvento(request: Request, idEvento: str) -> Salida:
+    dao = EventoDAO(request.app.cn.db)
+    return dao.eliminarEvento(idEvento)
+
+
 @app.on_event("startup")
 def startup():
     conexion = Conexion()
