@@ -1,4 +1,4 @@
--------- VALIDACION DE EVENTOS --------------
+-------- ESQUEMA DE VALIDACION DE EVENTOS --------------
 {
   $jsonSchema: {
     bsonType: 'object',
