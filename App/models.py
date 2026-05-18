@@ -104,6 +104,45 @@ class ConsultaGeneralSalidaInstitucion(BaseModel):
     instituciones: List[InstitucionConsulta] = []
 
 
+# ── JORGE ANDRES AVILA MEDINA - EVENTOS ────────────────────────────────────────────────────
+
+EstatusEvento = Literal[
+    "Captura", "Revision", "Rechazado", "Autorizado", "Cancelado",
+    "Planeacion", "Difusion", "Pospuesto", "Proceso", "Finalizado"
+]
 
 
+class EventoCreate(BaseModel):
+    nombre: str
+    fechaInicio: datetime
+    fechaFin: datetime
+    estatus: EstatusEvento
+    asistencia: bool
+
+
+class EventoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    fechaInicio: Optional[datetime] = None
+    fechaFin: Optional[datetime] = None
+    estatus: Optional[EstatusEvento] = None
+    asistencia: Optional[bool] = None
+
+
+class EventoConsulta(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    nombre: Optional[str] = None
+    fechaInicio: Optional[datetime] = None
+    fechaFin: Optional[datetime] = None
+    estatus: Optional[str] = None
+    asistencia: Optional[bool] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ConsultaSalidaEvento(Salida):
+    evento: Optional[EventoConsulta] = None
+
+
+class ConsultaGeneralSalidaEvento(Salida):
+    eventos: List[EventoConsulta] = []
 
