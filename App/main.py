@@ -69,30 +69,30 @@ async def crearInstitucion(request: Request, institucion: InstitucionCreate) -> 
     dao = InstitucionDAO(request.app.cn.db)
     return dao.agregarInstitucion(institucion)
  
-@app.get("/instituciones",tags=["Instituciones"],summary="Consultar todas las instituciones de procedencia",response_model=Salida)
-async def obtenerInstituciones(request: Request) -> Salida:
+@app.get("/instituciones",tags=["Instituciones"],summary="Consultar todas las instituciones de procedencia",response_model=ConsultaGeneralSalidaInstitucion)
+async def obtenerInstituciones(request: Request) -> ConsultaGeneralSalidaInstitucion:
     dao = InstitucionDAO(request.app.cn.db)
-    return dao.obtenerTodasLasInstituciones()
+    return dao.consultaGeneral()
  
-@app.get("/instituciones/id/{id}",tags=["Instituciones"],summary="Consultar institución por ID",response_model=Salida)
-async def obtenerInstitucionPorId(request: Request, id: str) -> Salida:
+@app.get("/instituciones/id/{id}",tags=["Instituciones"],summary="Consultar institución por ID",response_model=ConsultaSalidaInstitucion)
+async def obtenerInstitucionPorId(request: Request, id: str) -> ConsultaSalidaInstitucion:
     dao = InstitucionDAO(request.app.cn.db) 
-    return dao.obtenerInstitucionPorId(id)
+    return dao.consultarPorId(id)
  
-@app.get("/instituciones/nombre/{nombre}",tags=["Instituciones"],summary="Consultar instituciones por nombre",response_model=Salida)
-async def obtenerInstitucionesPorNombre(request: Request, nombre: str) -> Salida:
+@app.get("/instituciones/nombre/{nombre}",tags=["Instituciones"],summary="Consultar instituciones por nombre",response_model=ConsultaGeneralSalidaInstitucion)
+async def obtenerInstitucionesPorNombre(request: Request, nombre: str) -> ConsultaGeneralSalidaInstitucion:
     dao = InstitucionDAO(request.app.cn.db)
-    return dao.obtenerInstitucionesPorNombre(nombre)
+    return dao.consultarPorNombre(nombre)
  
-@app.get("/instituciones/ciudad/{ciudad}",tags=["Instituciones"],summary="Consultar instituciones por ciudad",response_model=Salida)
-async def obtenerInstitucionesPorCiudad(request: Request, ciudad: str) -> Salida:
+@app.get("/instituciones/ciudad/{ciudad}",tags=["Instituciones"],summary="Consultar instituciones por ciudad",response_model=ConsultaGeneralSalidaInstitucion)
+async def obtenerInstitucionesPorCiudad(request: Request, ciudad: str) -> ConsultaGeneralSalidaInstitucion:
     dao = InstitucionDAO(request.app.cn.db)
-    return dao.obtenerInstitucionesPorCiudad(ciudad)
+    return dao.consultarPorCiudad(ciudad)
  
 @app.put("/instituciones/{id}",tags=["Instituciones"],summary="Actualizar institución de procedencia",response_model=Salida)
 async def actualizarInstitucion(request: Request, id: str, datos: InstitucionUpdate) -> Salida:
     dao = InstitucionDAO(request.app.cn.db)
-    return dao.actualizarInstitucion(id, datos)
+    return dao.modificarInstitucion(id, datos)
  
 @app.delete("/instituciones/{id}",tags=["Instituciones"],summary="Eliminar institución de procedencia",response_model=Salida)
 async def eliminarInstitucion(request: Request, id: str) -> Salida:

@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from models import *
 from datetime import datetime
 
-DATABASEURL = "mongodb://localhost:27017"
+DATABASEURL = "mongodb://localhost:27017/"
 DATABASE = 'UsuariosExternos'
 
 class Conexion:
