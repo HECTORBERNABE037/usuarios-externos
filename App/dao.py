@@ -1,19 +1,28 @@
 from bson import ObjectId
 from pymongo import MongoClient
+import urllib
 from models import *
 from datetime import datetime
 
-DATABASEURL = "mongodb://localhost:27017"
+#DATABASEURL = "mongodb://localhost:27017"
 DATABASE = 'UsuariosExternos'
 
 class Conexion:
     _cliente = None
     _db = None
 
-    def __init__(self):
+    def __init__(self,correo=None,password=None):
         try:
-            self._cliente = MongoClient(DATABASEURL)
-            self._db = self._cliente.UsuariosExternos
+            if correo and password:
+                usr = urllib.parse.quote(correo)
+                pwd = urllib.parse.quote(password)
+                self.DATABASEURL = f'mongodb://{usr}:{pwd}@localhost:27017/?authSource=admin'
+
+            else:
+                self.DATABASEURL = 'mongodb://localhost:27017/'
+
+            self._cliente = MongoClient(self.DATABASEURL)
+            self._db = self._cliente[DATABASE]
             print(f"Conexion exitosa con la base de datos: {DATABASE}")
         except Exception as ex:
             print(f"Error al conectar con la base de datos por el error: {ex}")
@@ -25,13 +34,35 @@ class Conexion:
             print(f"Error al cerrar con la base de datos por el error: {ex}")
     @property
     def db(self):
-        return self._db
+        try:
+            return  self._db
+        except Exception as ex:
+            print("Error al obtener la conexion")
 
 class UsuarioDAO:
     def __init__(self,db):
         self.db = db
         self.col=self.db.UsuariosExternos
         self.view=self.db.UsuariosView
+
+    def autenticar(self, correo: str, password: str):
+        try:
+            result = self.view.find_one({
+                "correo": correo,
+                "password": password,
+                "estatus": {"$in": ["Registrado", "Acreditado"]}
+            })
+
+            if result:
+                result["_id"] = str(result["_id"])
+                if "idInstitucion" in result:
+                    result["idInstitucion"] = str(result["idInstitucion"])
+
+                return UsuarioConsulta(**result)
+            return None
+        except Exception as ex:
+            print(f"Error en autenticacion: {ex}")
+            return None
 
     def agregarUsuario(self,usuario:CrearUsuario):
         try:
