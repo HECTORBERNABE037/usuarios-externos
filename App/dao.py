@@ -1,8 +1,9 @@
 from bson import ObjectId
 from pymongo import MongoClient
+import urllib
 from models import *
 from datetime import datetime
-
+ 
 DATABASEURL = "mongodb://localhost:27017/"
 DATABASE = 'UsuariosExternos'
 
@@ -10,10 +11,18 @@ class Conexion:
     _cliente = None
     _db = None
 
-    def __init__(self):
+    def __init__(self,correo=None,password=None):
         try:
-            self._cliente = MongoClient(DATABASEURL)
-            self._db = self._cliente.UsuariosExternos
+            if correo and password:
+                usr = urllib.parse.quote(correo)
+                pwd = urllib.parse.quote(password)
+                self.DATABASEURL = f'mongodb://{usr}:{pwd}@localhost:27017/?authSource=admin'
+
+            else:
+                self.DATABASEURL = 'mongodb://localhost:27017/'
+
+            self._cliente = MongoClient(self.DATABASEURL)
+            self._db = self._cliente[DATABASE]
             print(f"Conexion exitosa con la base de datos: {DATABASE}")
         except Exception as ex:
             print(f"Error al conectar con la base de datos por el error: {ex}")
@@ -25,13 +34,35 @@ class Conexion:
             print(f"Error al cerrar con la base de datos por el error: {ex}")
     @property
     def db(self):
-        return self._db
+        try:
+            return  self._db
+        except Exception as ex:
+            print("Error al obtener la conexion")
 
 class UsuarioDAO:
     def __init__(self,db):
         self.db = db
         self.col=self.db.UsuariosExternos
         self.view=self.db.UsuariosView
+
+    def autenticar(self, correo: str, password: str):
+        try:
+            result = self.view.find_one({
+                "correo": correo,
+                "password": password,
+                "estatus": {"$in": ["Registrado", "Acreditado"]}
+            })
+
+            if result:
+                result["_id"] = str(result["_id"])
+                if "idInstitucion" in result:
+                    result["idInstitucion"] = str(result["idInstitucion"])
+
+                return UsuarioConsulta(**result)
+            return None
+        except Exception as ex:
+            print(f"Error en autenticacion: {ex}")
+            return None
 
     def agregarUsuario(self,usuario:CrearUsuario):
         try:
@@ -321,9 +352,16 @@ class InstitucionDAO:
         self.db = db
         self.col = self.db.Instituciones
  
-    def agregarInstitucion(self, institucion: InstitucionCreate) -> Salida:
+    def agregarInstitucion(self, institucion: InstitucionCreate, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
         try:
+            # Validar permisos: solo Supervisor y Organizador pueden crear instituciones
+            es_admin = rol.lower() in ["organizador", "supervisor"]
+            if not es_admin:
+                salida.codigo = 403
+                salida.mensaje = f"No tienes permisos para crear instituciones. Tu rol '{rol}' no tiene acceso."
+                return salida
+            
             # Regla de negocio: comprobar que no exista ya una institución con el mismo nombre
             institucion_existente = self.db.Instituciones.find_one({"nombre": institucion.nombre})
             if institucion_existente:
@@ -422,9 +460,16 @@ class InstitucionDAO:
             salida.mensaje = f"Error al buscar institucion por ciudad: {ex}"
         return salida
  
-    def modificarInstitucion(self, idInstitucion: str, datos: InstitucionUpdate) -> Salida:
+    def modificarInstitucion(self, idInstitucion: str, datos: InstitucionUpdate, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
         try:
+            # Validar permisos: solo Supervisor y Organizador pueden modificar instituciones
+            es_admin = rol.lower() in ["organizador", "supervisor"]
+            if not es_admin:
+                salida.codigo = 403
+                salida.mensaje = f"No tienes permisos para modificar instituciones. Tu rol '{rol}' no tiene acceso."
+                return salida
+            
             institucion_recuperada = self.db.Instituciones.find_one({"_id": ObjectId(idInstitucion)})
             if not institucion_recuperada:
                 salida.codigo = 404
@@ -458,8 +503,16 @@ class InstitucionDAO:
             salida.mensaje = f"Error interno del servidor al modificar la institucion {idInstitucion} por el error {ex}"
         return salida
  
-    def eliminarInstitucion(self, idInstitucion: str) -> Salida:
+    def eliminarInstitucion(self, idInstitucion: str, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
+        
+        # Validar permisos: solo Supervisor puede eliminar instituciones
+        es_supervisor = rol.lower() == "supervisor"
+        if not es_supervisor:
+            salida.codigo = 403
+            salida.mensaje = f"No tienes permisos para eliminar instituciones. Solo Supervisor puede eliminar. Tu rol es '{rol}'."
+            return salida
+        
         institucion_consultada = self.consultarPorId(idInstitucion)
         if institucion_consultada.codigo == 200:
             try:
