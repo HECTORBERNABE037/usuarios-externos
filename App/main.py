@@ -182,29 +182,73 @@ async def eliminarInstitucion(request: Request, id: str, user: UsuarioConsulta =
 # ── JORGE ANDRES AVILA MEDINA - EVENTOS ────────────────────────────────────────────────────
 
 @app.post("/eventos", tags=["Eventos"], summary="Crear un nuevo evento", response_model=Salida, status_code=201)
-async def crearEvento(request: Request, evento: EventoCreate) -> Salida:
-    dao = EventoDAO(request.app.cn.db)
-    return dao.agregarEvento(evento)
+@limiter.limit("5/minute")
+async def crearEvento(
+    request: Request,
+    evento: EventoCreate,
+    user: UsuarioConsulta = Depends(acceso_admin)
+) -> Salida:
+    cn = Conexion(user.correo, user.password)
+    dao = EventoDAO(cn.db)
+    salida = dao.agregarEvento(evento, user.rol)
+    cn.cerrar()
+    return salida
+
 
 @app.get("/eventos", tags=["Eventos"], summary="Consultar todos los eventos", response_model=ConsultaGeneralSalidaEvento)
-async def obtenerEventos(request: Request) -> ConsultaGeneralSalidaEvento:
-    dao = EventoDAO(request.app.cn.db)
-    return dao.consultaGeneral()
+@limiter.limit("5/minute")
+async def obtenerEventos(
+    request: Request,
+    user: UsuarioConsulta = Depends(acceso_total)
+) -> ConsultaGeneralSalidaEvento:
+    cn = Conexion(user.correo, user.password)
+    dao = EventoDAO(cn.db)
+    salida = dao.consultaGeneral()
+    cn.cerrar()
+    return salida
+
 
 @app.get("/eventos/{idEvento}", tags=["Eventos"], summary="Consultar un evento por ID", response_model=ConsultaSalidaEvento)
-async def obtenerEventoPorId(request: Request, idEvento: str) -> ConsultaSalidaEvento:
-    dao = EventoDAO(request.app.cn.db)
-    return dao.consultarPorId(idEvento)
+@limiter.limit("5/minute")
+async def obtenerEventoPorId(
+    request: Request,
+    idEvento: str,
+    user: UsuarioConsulta = Depends(acceso_total)
+) -> ConsultaSalidaEvento:
+    cn = Conexion(user.correo, user.password)
+    dao = EventoDAO(cn.db)
+    salida = dao.consultarPorId(idEvento)
+    cn.cerrar()
+    return salida
+
 
 @app.put("/eventos/{idEvento}", tags=["Eventos"], summary="Modificar un evento", response_model=Salida)
-async def modificarEvento(request: Request, idEvento: str, datos: EventoUpdate) -> Salida:
-    dao = EventoDAO(request.app.cn.db)
-    return dao.modificarEvento(idEvento, datos)
+@limiter.limit("5/minute")
+async def modificarEvento(
+    request: Request,
+    idEvento: str,
+    datos: EventoUpdate,
+    user: UsuarioConsulta = Depends(acceso_total)
+) -> Salida:
+    cn = Conexion(user.correo, user.password)
+    dao = EventoDAO(cn.db)
+    salida = dao.modificarEvento(idEvento, datos, user.rol)
+    cn.cerrar()
+    return salida
+
 
 @app.delete("/eventos/{idEvento}", tags=["Eventos"], summary="Eliminar un evento", response_model=Salida)
-async def eliminarEvento(request: Request, idEvento: str) -> Salida:
-    dao = EventoDAO(request.app.cn.db)
-    return dao.eliminarEvento(idEvento)
+@limiter.limit("5/minute")
+async def eliminarEvento(
+    request: Request,
+    idEvento: str,
+    user: UsuarioConsulta = Depends(acceso_supervisor)
+) -> Salida:
+    cn = Conexion(user.correo, user.password)
+    dao = EventoDAO(cn.db)
+    salida = dao.eliminarEvento(idEvento, user.rol)
+    cn.cerrar()
+    return salida
 
 
 # @app.on_event("startup")

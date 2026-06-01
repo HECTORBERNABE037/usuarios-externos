@@ -539,25 +539,35 @@ class EventoDAO:
         self.db = db
         self.col = self.db.Eventos
 
-    def agregarEvento(self, evento: EventoCreate) -> Salida:
+    def agregarEvento(self, evento: EventoCreate, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
         try:
+            if rol.lower() not in ["supervisor", "organizador"]:
+                salida.codigo = 403
+                salida.mensaje = f"No tienes permisos para crear eventos. Tu rol '{rol}' no tiene acceso."
+                return salida
+
             evento_existente = self.col.find_one({"nombre": evento.nombre})
             if evento_existente:
                 salida.codigo = 409
                 salida.mensaje = f"Ya existe un evento con el nombre '{evento.nombre}'"
                 return salida
+
             if evento.fechaFin < evento.fechaInicio:
                 salida.codigo = 400
                 salida.mensaje = "La fechaFin no puede ser anterior a la fechaInicio"
                 return salida
+
             data = evento.model_dump()
             result = self.col.insert_one(data)
+
             salida.codigo = 201
             salida.mensaje = f"Evento creado exitosamente con id {result.inserted_id}"
+
         except Exception as ex:
             salida.codigo = 500
             salida.mensaje = f"Error al agregar evento: {ex}"
+
         return salida
 
     def consultarPorId(self, idEvento: str) -> ConsultaSalidaEvento:
@@ -613,67 +623,90 @@ class EventoDAO:
             salida.mensaje = f"Error al consultar eventos por estatus: {ex}"
         return salida
 
-    def modificarEvento(self, idEvento: str, datos: EventoUpdate) -> Salida:
+    def modificarEvento(self, idEvento: str, datos: EventoUpdate, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
         try:
+            if rol.lower() not in ["supervisor", "organizador", "usuario"]:
+                salida.codigo = 403
+                salida.mensaje = f"No tienes permisos para modificar eventos. Tu rol '{rol}' no tiene acceso."
+                return salida
+
             evento_recuperado = self.col.find_one({"_id": ObjectId(idEvento)})
             if not evento_recuperado:
                 salida.codigo = 404
                 salida.mensaje = "El evento no existe"
                 return salida
+
             data = datos.model_dump(exclude_unset=True)
             if not data:
                 salida.codigo = 400
                 salida.mensaje = "Debes proporcionar informacion para realizar la modificacion"
                 return salida
+
             fecha_inicio = data.get("fechaInicio", evento_recuperado.get("fechaInicio"))
             fecha_fin = data.get("fechaFin", evento_recuperado.get("fechaFin"))
+
             if fecha_fin < fecha_inicio:
                 salida.codigo = 400
                 salida.mensaje = "La fechaFin no puede ser anterior a la fechaInicio"
                 return salida
+
             if "nombre" in data and data["nombre"] != evento_recuperado.get("nombre"):
                 nombre_existente = self.col.find_one({"nombre": data["nombre"]})
                 if nombre_existente:
                     salida.codigo = 409
                     salida.mensaje = f"Ya existe un evento con el nombre '{data['nombre']}'"
                     return salida
+
             result = self.col.update_one({"_id": ObjectId(idEvento)}, {"$set": data})
+
             if result.modified_count > 0:
                 salida.codigo = 200
                 salida.mensaje = "Evento modificado con exito"
             else:
                 salida.codigo = 200
                 salida.mensaje = "No se realizaron cambios. Los datos enviados son identicos"
+
         except Exception as ex:
             salida.codigo = 500
             salida.mensaje = f"Error interno del servidor al modificar el evento {idEvento}: {ex}"
+
         return salida
 
-    def eliminarEvento(self, idEvento: str) -> Salida:
+    def eliminarEvento(self, idEvento: str, rol: str) -> Salida:
         salida = Salida(codigo=0, mensaje="")
         try:
+            if rol.lower() != "supervisor":
+                salida.codigo = 403
+                salida.mensaje = f"No tienes permisos para eliminar eventos. Solo Supervisor puede eliminar. Tu rol es '{rol}'."
+                return salida
+
             evento_existente = self.col.find_one({"_id": ObjectId(idEvento)})
             if not evento_existente:
                 salida.codigo = 404
                 salida.mensaje = "El evento no existe"
                 return salida
+
             usuarios_inscritos = self.db.Usuarios.count_documents({"idEvento": ObjectId(idEvento)})
             if usuarios_inscritos > 0:
                 salida.codigo = 409
                 salida.mensaje = (
                     f"No se puede eliminar el evento porque tiene {usuarios_inscritos} "
-                    f"usuario(s) inscrito(s). Desincribalos primero."
+                    f"usuario(s) inscrito(s). Desinscríbalos primero."
                 )
                 return salida
+
             result = self.col.delete_one({"_id": ObjectId(idEvento)})
+
             if result.deleted_count > 0:
                 salida.codigo = 200
                 salida.mensaje = "Evento eliminado con exito"
             else:
                 salida.codigo = 500
                 salida.mensaje = "Error al eliminar el evento"
+
         except Exception as ex:
             salida.codigo = 500
             salida.mensaje = f"Error al eliminar el evento: {ex}"
+
         return salida
